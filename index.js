@@ -4,13 +4,17 @@ var express         = require('express');
 var socketio        = require('socket.io');
 var morgan          = require('morgan');
 var fs              = require('fs');
+var minimist        = require('minimist');
 var Tail            = require('tail').Tail;
 var formatters      = require(__dirname + '/formatters');
 var app             = express();
 var watchers        = {};
+var options         = minimist(process.argv.slice(2));
 
 var homeDir         = process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
 var config;
+
+
 
 try {
     config          = require(homeDir + '/.natelogg/config');
@@ -19,7 +23,16 @@ try {
     process.exit();
 }
 
-var port            = config.port || 9000;
+if (options.enableInspector) {
+    if (typeof config.portAppMap === 'undefined') {
+        console.error('Cannot use node --inspect mode without "portAppMap" in config file.');
+        process.exit();
+    } else {
+        options.portAppMap  = config.portAppMap;
+    }
+}
+
+var port = config.port || 9000;
 
 app.set('view engine', 'ejs');
 app.set('views', __dirname + '/views');
@@ -33,9 +46,14 @@ app.get('/', function (req, res) {
         }
 
         res.render('main', {
-            logs: logs
+            logs: logs,
+            options: options
         });
     });
+});
+
+app.get('/newtab', function (req, res) {
+    res.location('/' + req.query.url);
 });
 
 var server = app.listen(port, function () {
